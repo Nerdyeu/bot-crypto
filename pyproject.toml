@@ -1,0 +1,11 @@
+[project]
+name = "trading-bot"
+version = "0.1.0"
+description = "Safety-first crypto trading bot (paper by default, real orders heavily gated)."
+requires-python = ">=3.11"
+
+[tool.pytest.ini_options]
+# Run from the repo root so `import trading_bot` resolves without installation.
+pythonpath = ["."]
+testpaths = ["trading_bot/tests"]
+addopts = "-v"
