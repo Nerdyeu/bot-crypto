@@ -66,6 +66,18 @@ def build_parser() -> argparse.ArgumentParser:
         help="Backtest: number of candles to fetch when no --csv is given (default 500).",
     )
     parser.add_argument(
+        "--poll",
+        type=float,
+        default=60.0,
+        help="Paper mode: seconds between cycles (default 60).",
+    )
+    parser.add_argument(
+        "--iterations",
+        type=int,
+        default=None,
+        help="Paper mode: stop after N cycles (default: run until interrupted).",
+    )
+    parser.add_argument(
         "--env-file",
         default=".env",
         help="Path to the .env file (default: .env).",
@@ -163,6 +175,18 @@ def run_backtest_cli(log, settings: Settings, csv: Optional[str], limit: int) ->
     return 0
 
 
+def run_paper_cli(log, settings: Settings, poll: float, iterations: Optional[int]) -> int:
+    """Run real-time paper trading (simulated orders, real prices)."""
+    from trading_bot.paper import build_paper_trader
+
+    trader = build_paper_trader(settings)
+    try:
+        trader.run(poll_seconds=poll, max_iterations=iterations)
+    except KeyboardInterrupt:
+        log.info("Paper trading stopped by user.")
+    return 0
+
+
 def main(argv: Optional[Sequence[str]] = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
@@ -191,8 +215,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         return run_backtest_cli(log, settings, args.csv, args.limit)
 
     if args.mode == "paper":
-        log.info("Paper mode is not implemented yet (Milestone 6). Nothing to do.")
-        return 0
+        return run_paper_cli(log, settings, args.poll, args.iterations)
 
     if args.mode == "live":
         # Live trading is intentionally locked until the executor and all

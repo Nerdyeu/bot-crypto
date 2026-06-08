@@ -41,7 +41,7 @@ La construction est **incrémentale**. Chaque jalon est validé avant le suivant
 | 3 | `strategy.py` (croisement de SMA) + tests | ✅ **Fait** |
 | 4 | `backtest.py` + rapport (rendement, drawdown, win rate) | ✅ **Fait** |
 | 5 | `risk.py` (tous les garde-fous) + tests | ✅ **Fait** |
-| 6 | `paper.py` (simulation temps réel) | ⏳ à venir |
+| 6 | `paper.py` (simulation temps réel) + alertes | ✅ **Fait** |
 | 7 | `executor.py` + mode `live` verrouillé (en dernier) | ⏳ à venir |
 
 ---
@@ -59,7 +59,8 @@ bot-crypto/
 │  ├─ strategy.py      # signaux BUY/SELL/HOLD (croisement de SMA)        ✅
 │  ├─ backtest.py      # rejoue des données historiques + rapport          ✅
 │  ├─ risk.py          # garde-fous (le module le plus important)          ✅
-│  ├─ paper.py         # simulation temps réel (portefeuille virtuel) (jalon 6)
+│  ├─ paper.py         # simulation temps réel (portefeuille virtuel)      ✅
+│  ├─ alerts.py        # hook d'alerte (log + Telegram optionnel)          ✅
 │  ├─ executor.py      # orchestration + verrou live                  (jalon 7)
 │  ├─ data/            # CSV historiques (contenu git-ignoré)
 │  └─ tests/           # tests unitaires (sans réseau ni exchange réel)
@@ -141,6 +142,8 @@ Quand vous créerez vos clés API côté exchange :
 ```bash
 # Mode paper (simulation) — c'est le défaut
 python -m trading_bot.main --mode paper
+# Options : intervalle entre cycles et nombre de cycles (sinon : sans fin)
+python -m trading_bot.main --mode paper --poll 60 --iterations 10
 
 # Backtest depuis un CSV (colonnes : close requise ; high/low/timestamp utiles)
 python -m trading_bot.main --mode backtest --csv chemin/vers/data.csv
