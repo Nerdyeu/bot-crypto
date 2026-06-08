@@ -39,7 +39,7 @@ La construction est **incrémentale**. Chaque jalon est validé avant le suivant
 | 1 | Structure + `config.py` + `.env.example` + `README.md` | ✅ **Fait** |
 | 2 | `exchange.py` en lecture seule (prix, solde, OHLCV sur testnet) + retries | ✅ **Fait** |
 | 3 | `strategy.py` (croisement de SMA) + tests | ✅ **Fait** |
-| 4 | `backtest.py` + rapport (rendement, drawdown, win rate) | ⏳ à venir |
+| 4 | `backtest.py` + rapport (rendement, drawdown, win rate) | ✅ **Fait** |
 | 5 | `risk.py` (tous les garde-fous) + tests | ⏳ à venir |
 | 6 | `paper.py` (simulation temps réel) | ⏳ à venir |
 | 7 | `executor.py` + mode `live` verrouillé (en dernier) | ⏳ à venir |
@@ -57,7 +57,7 @@ bot-crypto/
 │  ├─ main.py          # point d'entrée + CLI (--mode), bannière de démarrage ✅
 │  ├─ exchange.py      # wrapper ccxt en lecture seule (prix/solde/OHLCV) ✅
 │  ├─ strategy.py      # signaux BUY/SELL/HOLD (croisement de SMA)        ✅
-│  ├─ backtest.py      # rejoue des données historiques + rapport     (jalon 4)
+│  ├─ backtest.py      # rejoue des données historiques + rapport          ✅
 │  ├─ risk.py          # garde-fous (le module le plus important)     (jalon 5)
 │  ├─ paper.py         # simulation temps réel (portefeuille virtuel) (jalon 6)
 │  ├─ executor.py      # orchestration + verrou live                  (jalon 7)
@@ -142,8 +142,10 @@ Quand vous créerez vos clés API côté exchange :
 # Mode paper (simulation) — c'est le défaut
 python -m trading_bot.main --mode paper
 
-# Backtest (rejoue des données historiques, aucune connexion de trading)
-python -m trading_bot.main --mode backtest
+# Backtest depuis un CSV (colonnes : close requise ; high/low/timestamp utiles)
+python -m trading_bot.main --mode backtest --csv chemin/vers/data.csv
+# Sans --csv, le bot tente de télécharger les bougies (nécessite le réseau)
+python -m trading_bot.main --mode backtest --limit 500
 
 # Live (réel) — VERROUILLÉ tant que le jalon 7 n'est pas validé
 python -m trading_bot.main --mode live

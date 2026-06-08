@@ -55,6 +55,17 @@ def build_parser() -> argparse.ArgumentParser:
         "(and balance if API keys are set), then exit. Never places orders.",
     )
     parser.add_argument(
+        "--csv",
+        default=None,
+        help="Backtest: path to an OHLCV CSV (must contain a 'close' column).",
+    )
+    parser.add_argument(
+        "--limit",
+        type=int,
+        default=500,
+        help="Backtest: number of candles to fetch when no --csv is given (default 500).",
+    )
+    parser.add_argument(
         "--env-file",
         default=".env",
         help="Path to the .env file (default: .env).",
@@ -115,6 +126,43 @@ def print_banner(log, settings: Settings, mode: str) -> None:
     log.info("=" * 60)
 
 
+def run_backtest_cli(log, settings: Settings, csv: Optional[str], limit: int) -> int:
+    """Run a backtest from a CSV (preferred) or freshly fetched candles."""
+    from trading_bot.backtest import load_ohlcv_csv, run_backtest
+    from trading_bot.strategy import build_strategy
+
+    if csv:
+        try:
+            data = load_ohlcv_csv(csv)
+        except (FileNotFoundError, ValueError) as exc:
+            log.error("Cannot load CSV %s: %s", csv, exc)
+            return 2
+        log.info("Loaded %d candles from %s", len(data), csv)
+    else:
+        try:
+            from trading_bot.exchange import ExchangeClient
+
+            data = ExchangeClient(settings).fetch_ohlcv(limit=limit)
+            log.info("Fetched %d candles from %s", len(data), settings.exchange_id)
+        except Exception as exc:  # network blocked, ccxt missing, etc.
+            log.error("No --csv given and fetching candles failed: %s", exc)
+            log.error("Provide historical data, e.g.: --mode backtest --csv path/to/data.csv")
+            return 2
+
+    strategy = build_strategy(settings)
+    log.info("Strategy: %s", strategy.name)
+    report = run_backtest(
+        data,
+        strategy,
+        initial_capital=settings.initial_capital,
+        stop_loss_pct=settings.risk.stop_loss_pct,
+        take_profit_pct=settings.risk.take_profit_pct,
+    )
+    for line in report.summary().splitlines():
+        log.info(line)
+    return 0
+
+
 def main(argv: Optional[Sequence[str]] = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
@@ -140,8 +188,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
 
     # 4) Dispatch (full implementations land in later milestones).
     if args.mode == "backtest":
-        log.info("Backtest mode is not implemented yet (Milestone 4). Nothing to do.")
-        return 0
+        return run_backtest_cli(log, settings, args.csv, args.limit)
 
     if args.mode == "paper":
         log.info("Paper mode is not implemented yet (Milestone 6). Nothing to do.")
