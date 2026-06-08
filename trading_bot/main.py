@@ -4,8 +4,10 @@ At this milestone ``main.py`` already:
 
 * parses the CLI (``--mode`` etc.),
 * loads and validates configuration (failing cleanly on bad config),
-* configures logging, and
-* prints the startup banner (mode, exchange, capital, active risk limits).
+* configures logging,
+* prints the startup banner (mode, exchange, capital, active risk limits), and
+* supports a read-only ``--check-connection`` smoke test (Milestone 2) that
+  fetches market status / price / balance without ever placing an order.
 
 The actual execution modes are implemented in later milestones:
 
@@ -46,11 +48,42 @@ def build_parser() -> argparse.ArgumentParser:
         help="Required (together with TRADING_MODE=live) to even attempt live trading.",
     )
     parser.add_argument(
+        "--check-connection",
+        action="store_true",
+        dest="check_connection",
+        help="Read-only: connect to the exchange, print market status, current price "
+        "(and balance if API keys are set), then exit. Never places orders.",
+    )
+    parser.add_argument(
         "--env-file",
         default=".env",
         help="Path to the .env file (default: .env).",
     )
     return parser
+
+
+def run_connection_check(log, settings: Settings) -> int:
+    """Read-only exchange smoke test (Milestone 2). Places no orders."""
+    try:
+        from trading_bot.exchange import ExchangeClient, ExchangeClientError
+    except ImportError as exc:  # ccxt / pandas not installed
+        log.error("Exchange layer unavailable (is ccxt installed?): %s", exc)
+        return 3
+
+    client = ExchangeClient(settings)
+    try:
+        client.verify_connection()
+        price = client.get_price()
+        log.info("Last price of %s: %s %s", settings.symbol, price, settings.quote_currency)
+        if settings.has_credentials:
+            balance = client.get_free_balance()
+            log.info("Free %s balance: %s", settings.quote_currency, balance)
+        else:
+            log.info("No API credentials set — skipping balance (public data only).")
+        return 0
+    except ExchangeClientError as exc:
+        log.error("Connection check failed: %s", exc)
+        return 3
 
 
 def print_banner(log, settings: Settings, mode: str) -> None:
@@ -100,6 +133,10 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
 
     # 3) Startup banner.
     print_banner(log, settings, args.mode)
+
+    # 3b) Optional read-only connectivity check (safe in any mode).
+    if args.check_connection:
+        return run_connection_check(log, settings)
 
     # 4) Dispatch (full implementations land in later milestones).
     if args.mode == "backtest":

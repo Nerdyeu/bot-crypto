@@ -6,26 +6,11 @@ These tests never touch the network or a real exchange. They drive
 
 from __future__ import annotations
 
-import os
-
 import pytest
 
 from trading_bot.config import ConfigError, load_settings
 
-# Env vars the config understands; cleared before every test for isolation.
-_MANAGED_PREFIXES = (
-    "TRADING_MODE", "EXCHANGE_", "USE_SANDBOX", "SYMBOL", "TIMEFRAME",
-    "INITIAL_CAPITAL", "LOG_", "TELEGRAM_", "DATA_DIR", "RISK__", "STRATEGY__",
-)
-
-
-@pytest.fixture(autouse=True)
-def _clean_env(monkeypatch):
-    """Remove any managed env vars so each test starts from defaults."""
-    for key in list(os.environ):
-        if key.upper().startswith(_MANAGED_PREFIXES):
-            monkeypatch.delenv(key, raising=False)
-    yield
+# Env isolation (clean_env) is provided by the shared conftest.py fixture.
 
 
 def _load():

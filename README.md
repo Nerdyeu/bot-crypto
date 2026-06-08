@@ -37,7 +37,7 @@ La construction est **incrémentale**. Chaque jalon est validé avant le suivant
 | Jalon | Contenu | Statut |
 |------:|---------|:------:|
 | 1 | Structure + `config.py` + `.env.example` + `README.md` | ✅ **Fait** |
-| 2 | `exchange.py` en lecture seule (prix, solde, OHLCV sur testnet) | ⏳ à venir |
+| 2 | `exchange.py` en lecture seule (prix, solde, OHLCV sur testnet) + retries | ✅ **Fait** |
 | 3 | `strategy.py` (croisement de SMA) + tests | ⏳ à venir |
 | 4 | `backtest.py` + rapport (rendement, drawdown, win rate) | ⏳ à venir |
 | 5 | `risk.py` (tous les garde-fous) + tests | ⏳ à venir |
@@ -55,7 +55,7 @@ bot-crypto/
 │  ├─ config.py        # chargement + validation de la config (pydantic)   ✅
 │  ├─ logger.py        # logging fichier rotatif + console                  ✅
 │  ├─ main.py          # point d'entrée + CLI (--mode), bannière de démarrage ✅
-│  ├─ exchange.py      # wrapper ccxt (lecture seule d'abord)         (jalon 2)
+│  ├─ exchange.py      # wrapper ccxt en lecture seule (prix/solde/OHLCV) ✅
 │  ├─ strategy.py      # génération de signaux BUY/SELL/HOLD          (jalon 3)
 │  ├─ backtest.py      # rejoue des données historiques + rapport     (jalon 4)
 │  ├─ risk.py          # garde-fous (le module le plus important)     (jalon 5)
@@ -148,6 +148,20 @@ python -m trading_bot.main --mode backtest
 # Live (réel) — VERROUILLÉ tant que le jalon 7 n'est pas validé
 python -m trading_bot.main --mode live
 ```
+
+### Vérifier la connexion à l'exchange (lecture seule, jalon 2)
+
+Test **sans risque** : se connecte à l'exchange (testnet par défaut), affiche le
+statut du marché, le prix courant et — si des clés API sont configurées — le
+solde. **Aucun ordre n'est passé.**
+
+```bash
+python -m trading_bot.main --check-connection
+```
+
+En cas de coupure réseau, les appels sont **réessayés** (backoff exponentiel)
+puis l'échec est signalé proprement (pas de crash). Les clés ne sont pas
+nécessaires pour le prix (données publiques) ; elles le sont pour le solde.
 
 Au démarrage, le bot affiche une **bannière** récapitulant le mode, l'exchange, le
 capital et les limites de risque actives.
