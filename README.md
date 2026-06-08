@@ -38,7 +38,7 @@ La construction est **incrémentale**. Chaque jalon est validé avant le suivant
 |------:|---------|:------:|
 | 1 | Structure + `config.py` + `.env.example` + `README.md` | ✅ **Fait** |
 | 2 | `exchange.py` en lecture seule (prix, solde, OHLCV sur testnet) + retries | ✅ **Fait** |
-| 3 | `strategy.py` (croisement de SMA) + tests | ⏳ à venir |
+| 3 | `strategy.py` (croisement de SMA) + tests | ✅ **Fait** |
 | 4 | `backtest.py` + rapport (rendement, drawdown, win rate) | ⏳ à venir |
 | 5 | `risk.py` (tous les garde-fous) + tests | ⏳ à venir |
 | 6 | `paper.py` (simulation temps réel) | ⏳ à venir |
@@ -56,7 +56,7 @@ bot-crypto/
 │  ├─ logger.py        # logging fichier rotatif + console                  ✅
 │  ├─ main.py          # point d'entrée + CLI (--mode), bannière de démarrage ✅
 │  ├─ exchange.py      # wrapper ccxt en lecture seule (prix/solde/OHLCV) ✅
-│  ├─ strategy.py      # génération de signaux BUY/SELL/HOLD          (jalon 3)
+│  ├─ strategy.py      # signaux BUY/SELL/HOLD (croisement de SMA)        ✅
 │  ├─ backtest.py      # rejoue des données historiques + rapport     (jalon 4)
 │  ├─ risk.py          # garde-fous (le module le plus important)     (jalon 5)
 │  ├─ paper.py         # simulation temps réel (portefeuille virtuel) (jalon 6)
