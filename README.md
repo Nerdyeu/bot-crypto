@@ -42,7 +42,7 @@ La construction est **incrémentale**. Chaque jalon est validé avant le suivant
 | 4 | `backtest.py` + rapport (rendement, drawdown, win rate) | ✅ **Fait** |
 | 5 | `risk.py` (tous les garde-fous) + tests | ✅ **Fait** |
 | 6 | `paper.py` (simulation temps réel) + alertes | ✅ **Fait** |
-| 7 | `executor.py` + mode `live` verrouillé (en dernier) | ⏳ à venir |
+| 7 | `executor.py` + mode `live` verrouillé (en dernier) | ✅ **Fait** |
 
 ---
 
@@ -61,7 +61,7 @@ bot-crypto/
 │  ├─ risk.py          # garde-fous (le module le plus important)          ✅
 │  ├─ paper.py         # simulation temps réel (portefeuille virtuel)      ✅
 │  ├─ alerts.py        # hook d'alerte (log + Telegram optionnel)          ✅
-│  ├─ executor.py      # orchestration + verrou live                  (jalon 7)
+│  ├─ executor.py      # orchestration (moteur) + verrou live 4 facteurs   ✅
 │  ├─ data/            # CSV historiques (contenu git-ignoré)
 │  └─ tests/           # tests unitaires (sans réseau ni exchange réel)
 │     └─ test_config.py
@@ -150,8 +150,10 @@ python -m trading_bot.main --mode backtest --csv chemin/vers/data.csv
 # Sans --csv, le bot tente de télécharger les bougies (nécessite le réseau)
 python -m trading_bot.main --mode backtest --limit 500
 
-# Live (réel) — VERROUILLÉ tant que le jalon 7 n'est pas validé
-python -m trading_bot.main --mode live
+# Live (réel) — placé SEULEMENT si les 4 conditions sont réunies :
+#   1) --mode live  2) TRADING_MODE=live  3) --i-understand-the-risks
+#   4) confirmation tapée « I UNDERSTAND » au lancement
+TRADING_MODE=live python -m trading_bot.main --mode live --i-understand-the-risks
 ```
 
 ### Vérifier la connexion à l'exchange (lecture seule, jalon 2)
@@ -171,16 +173,15 @@ nécessaires pour le prix (données publiques) ; elles le sont pour le solde.
 Au démarrage, le bot affiche une **bannière** récapitulant le mode, l'exchange, le
 capital et les limites de risque actives.
 
-> À ce jalon (1), les modes `backtest`/`paper`/`live` chargent et valident la
-> configuration puis s'arrêtent : la logique de trading arrive aux jalons
-> suivants. Le mode `live` refuse explicitement de démarrer.
+> Si une condition du verrou live manque, le bot **refuse** de démarrer en réel
+> (code de sortie 1) et n'effectue aucun ordre.
 
 ---
 
 ## 🛡️ Modèle de sécurité (mode `live`)
 
 Un ordre **réel** ne sera jamais passé sauf si **TOUTES** ces conditions sont
-réunies (mises en place au jalon 7) :
+réunies (verrou à 4 facteurs, dans `executor.py`) :
 
 1. `--mode live` (CLI)
 2. `TRADING_MODE=live` (environnement)

@@ -143,3 +143,27 @@ def test_verify_connection(settings):
     ex.load_markets.return_value = {"BTC/USDT": {}, "ETH/USDT": {}}
     assert _client(settings, ex).verify_connection() is True
     ex.load_markets.assert_called_once()
+
+
+# --------------------------------------------------------------------------- #
+# Order placement (WRITE): single attempt, never retried
+# --------------------------------------------------------------------------- #
+def test_create_market_order_calls_ccxt(settings):
+    ex = Mock()
+    ex.create_order.return_value = {"id": "1"}
+    _client(settings, ex).create_market_order("BTC/USDT", "buy", 0.1)
+    ex.create_order.assert_called_once_with("BTC/USDT", "market", "buy", 0.1)
+
+
+def test_create_market_order_rejects_bad_side(settings):
+    with pytest.raises(ExchangeClientError):
+        _client(settings, Mock()).create_market_order("BTC/USDT", "hodl", 1.0)
+
+
+def test_create_market_order_is_not_retried(settings):
+    ex = Mock()
+    ex.create_order.side_effect = ccxt.NetworkError("boom")
+    client = _client(settings, ex, max_retries=3)
+    with pytest.raises(ExchangeClientError):
+        client.create_market_order("BTC/USDT", "buy", 0.1)
+    assert ex.create_order.call_count == 1  # never retried -> no double-submit

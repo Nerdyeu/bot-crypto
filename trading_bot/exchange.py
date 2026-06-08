@@ -10,11 +10,14 @@ What this layer does (read-only):
     * fetch account balance (requires API credentials),
     * fetch OHLCV candles as a pandas ``DataFrame``.
 
-What it deliberately does NOT do yet:
-    * place, amend or cancel orders. Order placement is added later (Milestone 7)
-      and gated behind the risk checks and the live-trading lock.
+Order placement (Milestone 7):
+    * ``create_market_order`` places a REAL market order. It is intentionally the
+      only write method, is NOT retried (to avoid accidental double-submits), and
+      is only ever called by the live executor *after* the four-factor live lock
+      and the risk checks have passed.
 
-Resilience: transient network errors are retried with exponential backoff.
+Resilience: transient network errors are retried with exponential backoff (reads
+only).
 Authentication / bad-request errors fail fast with a clear message. All
 underlying ``ccxt`` exceptions are wrapped in :class:`ExchangeClientError`.
 """
@@ -256,3 +259,28 @@ class ExchangeClient:
         balance = self.fetch_balance()
         free = balance.get("free", {}) or {}
         return float(free.get(currency, 0.0) or 0.0)
+
+    # ------------------------------------------------------------------ #
+    # Order placement (WRITE) — the only method that moves real money
+    # ------------------------------------------------------------------ #
+    def create_market_order(self, symbol: str, side, amount: float) -> dict:
+        """Place a REAL market order. Single attempt — never retried.
+
+        Order submission is deliberately NOT wrapped in the retry helper: a
+        network error after the exchange has accepted the order could otherwise
+        cause a duplicate fill. This is only called by the live executor once the
+        live lock and risk checks have passed.
+        """
+        side_str = (side.value if hasattr(side, "value") else str(side)).lower()
+        if side_str not in ("buy", "sell"):
+            raise ExchangeClientError(f"invalid order side: {side!r}")
+        if amount <= 0:
+            raise ExchangeClientError(f"order amount must be positive, got {amount}.")
+
+        log.warning("PLACING REAL %s MARKET ORDER: %s amount=%s", side_str.upper(), symbol, amount)
+        try:
+            return self.exchange.create_order(symbol, "market", side_str, amount)
+        except ccxt.AuthenticationError as exc:
+            raise ExchangeClientError(f"Authentication failed placing order: {exc}") from exc
+        except ccxt.BaseError as exc:
+            raise ExchangeClientError(f"create_market_order failed: {exc}") from exc

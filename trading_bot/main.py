@@ -9,11 +9,11 @@ At this milestone ``main.py`` already:
 * supports a read-only ``--check-connection`` smoke test (Milestone 2) that
   fetches market status / price / balance without ever placing an order.
 
-The actual execution modes are implemented in later milestones:
+Execution modes:
 
-* ``backtest`` — Milestone 4
-* ``paper``    — Milestone 6
-* ``live``     — Milestone 7 (locked until then)
+* ``backtest`` — replay a CSV / fetched candles and print a report.
+* ``paper``    — real-time simulation (default), no real money.
+* ``live``     — real orders, only after the four-factor lock (see executor.py).
 
 Run from the repository root::
 
@@ -218,17 +218,31 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         return run_paper_cli(log, settings, args.poll, args.iterations)
 
     if args.mode == "live":
-        # Live trading is intentionally locked until the executor and all
-        # safeguards are in place (Milestone 7). We refuse here regardless of
-        # flags so it is impossible to place a real order at this stage.
-        log.error(
-            "Live mode is LOCKED until Milestone 7. Refusing to start. "
-            "(safety gate TRADING_MODE=%s, --i-understand-the-risks=%s)",
-            settings.trading_mode,
-            args.understand_risks,
-        )
+        return run_live_cli(log, settings, args)
+
+    return 0
+
+
+def run_live_cli(log, settings: Settings, args) -> int:
+    """Run live trading — only after the four-factor lock is satisfied."""
+    from trading_bot.executor import (
+        LiveTradingError,
+        build_live_executor,
+        confirm_live_trading,
+    )
+
+    try:
+        confirm_live_trading(settings, mode=args.mode, understand_risks=args.understand_risks)
+    except LiveTradingError as exc:
+        log.error("LIVE TRADING REFUSED: %s", exc)
         return 1
 
+    log.warning("LIVE TRADING CONFIRMED — real orders may now be placed.")
+    executor = build_live_executor(settings)
+    try:
+        executor.run(poll_seconds=args.poll, max_iterations=args.iterations)
+    except KeyboardInterrupt:
+        log.info("Live trading stopped by user.")
     return 0
 
 
