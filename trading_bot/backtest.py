@@ -42,15 +42,18 @@ class BacktestReport:
     trade_pnls: List[float] = field(default_factory=list)
 
     def summary(self) -> str:
-        return (
-            "Backtest report\n"
-            f"  Initial equity : {self.initial_equity:.2f}\n"
-            f"  Final equity   : {self.final_equity:.2f}\n"
-            f"  Total return   : {self.total_return_pct:+.2f}%\n"
-            f"  Max drawdown   : {self.max_drawdown_pct:.2f}%\n"
-            f"  Trades         : {self.num_trades} ({self.wins}W / {self.losses}L)\n"
-            f"  Win rate       : {self.win_rate * 100:.1f}%"
-        )
+        from trading_bot import ui
+
+        arrow = "▲" if self.total_return_pct >= 0 else "▼"
+        rows = [
+            ("Capital initial", ui.money(self.initial_equity)),
+            ("Capital final", ui.money(self.final_equity)),
+            ("Performance", f"{ui.pct(self.total_return_pct, sign=True)}   {arrow}"),
+            ("Drawdown max", ui.pct(self.max_drawdown_pct)),
+            ("Trades", f"{self.num_trades}   ({self.wins} gagnés / {self.losses} perdus)"),
+            ("Taux de réussite", ui.pct(self.win_rate * 100)),
+        ]
+        return ui.block("RÉSULTAT DU BACKTEST", rows)
 
 
 def load_ohlcv_csv(path: str) -> pd.DataFrame:

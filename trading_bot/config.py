@@ -245,7 +245,7 @@ class Settings(BaseSettings):
         def mask(value: Optional[str]) -> str:
             if not value:
                 return "<not set>"
-            return f"set (••••{value[-4:]})" if len(value) >= 4 else "set"
+            return f"set (****{value[-4:]})" if len(value) >= 4 else "set"
 
         return {
             "trading_mode": self.trading_mode,

@@ -128,7 +128,7 @@ class ExchangeClient:
                     self.name,
                 )
         else:
-            log.warning("Sandbox DISABLED — talking to the LIVE %s endpoints.", self.name)
+            log.info("%s : vrais prix du marché (ordres réels uniquement en mode live).", self.name)
 
         return exchange
 

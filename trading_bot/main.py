@@ -110,32 +110,32 @@ def run_connection_check(log, settings: Settings) -> int:
 
 
 def print_banner(log, settings: Settings, mode: str) -> None:
-    """Log the startup banner with the active configuration and risk limits."""
-    summary = settings.safe_summary()
-    risk = settings.risk
+    """Log a clean, readable startup screen with the active configuration."""
+    from trading_bot import ui
 
-    log.info("=" * 60)
-    log.info("  trading_bot starting up")
-    log.info("=" * 60)
-    log.info("Execution mode (--mode) : %s", mode)
-    log.info("Safety gate (TRADING_MODE): %s", summary["trading_mode"])
-    log.info("Exchange                : %s (sandbox=%s)", summary["exchange_id"], summary["use_sandbox"])
-    log.info("Symbol / timeframe      : %s / %s", summary["symbol"], summary["timeframe"])
-    log.info("Initial capital         : %s %s", summary["initial_capital"], summary["quote_currency"])
-    log.info("API credentials         : key=%s secret=%s", summary["api_key"], summary["api_secret"])
-    log.info("Telegram alerts         : %s", summary["telegram_alerts"])
-    log.info("-" * 60)
-    log.info("Active risk limits:")
-    log.info("  Max position size     : %.2f%% of equity", risk.max_position_pct * 100)
-    log.info("  Max daily loss        : %.2f%% of equity", risk.max_daily_loss_pct * 100)
-    log.info("  Kill-switch floor     : %.2f%% of initial capital", risk.kill_switch_floor_pct * 100)
-    log.info("  Max trades / day      : %d", risk.max_trades_per_day)
-    log.info("  Min balance to trade  : %s %s", risk.min_balance, summary["quote_currency"])
-    log.info("  Stop-loss (mandatory) : %.2f%%", risk.stop_loss_pct * 100)
-    log.info("  Take-profit           : %.2f%%", risk.take_profit_pct * 100)
-    log.info("Strategy                : %s (short=%d, long=%d)",
-             settings.strategy.name, settings.strategy.short_window, settings.strategy.long_window)
-    log.info("=" * 60)
+    s = settings
+    r = s.risk
+    data_src = "testnet" if s.use_sandbox else "vrais prix du marché"
+    keys = "configurées" if s.has_credentials else "aucune (ok pour paper/backtest)"
+
+    rows = [
+        ("Mode", f"{mode}   (sécurité : {s.trading_mode})"),
+        ("Exchange", f"{s.exchange_id}   ·   {data_src}"),
+        ("Paire", f"{s.symbol}   ·   {s.timeframe}"),
+        ("Capital", ui.money(s.initial_capital, s.quote_currency)),
+        ("Clés API", keys),
+        ("Stratégie", f"{s.strategy.name}  ({s.strategy.short_window}/{s.strategy.long_window})"),
+        None,
+        "Limites de risque",
+        ("  Taille max / trade", f"{ui.pct(r.max_position_pct * 100)} du capital"),
+        ("  Stop-loss", ui.pct(r.stop_loss_pct * 100)),
+        ("  Take-profit", ui.pct(r.take_profit_pct * 100)),
+        ("  Perte / jour max", ui.pct(r.max_daily_loss_pct * 100)),
+        ("  Kill-switch", f"{r.kill_switch_floor_pct * 100:.0f}% du capital initial"),
+        ("  Max trades / jour", str(r.max_trades_per_day)),
+        ("  Solde minimum", ui.money(r.min_balance, s.quote_currency)),
+    ]
+    log.info("\n" + ui.block("TRADING BOT", rows))
 
 
 def run_backtest_cli(log, settings: Settings, csv: Optional[str], limit: int) -> int:
@@ -149,20 +149,19 @@ def run_backtest_cli(log, settings: Settings, csv: Optional[str], limit: int) ->
         except (FileNotFoundError, ValueError) as exc:
             log.error("Cannot load CSV %s: %s", csv, exc)
             return 2
-        log.info("Loaded %d candles from %s", len(data), csv)
+        log.info("%d bougies chargées depuis %s", len(data), csv)
     else:
         try:
             from trading_bot.exchange import ExchangeClient
 
             data = ExchangeClient(settings).fetch_ohlcv(limit=limit)
-            log.info("Fetched %d candles from %s", len(data), settings.exchange_id)
+            log.info("%d bougies récupérées depuis %s", len(data), settings.exchange_id)
         except Exception as exc:  # network blocked, ccxt missing, etc.
-            log.error("No --csv given and fetching candles failed: %s", exc)
-            log.error("Provide historical data, e.g.: --mode backtest --csv path/to/data.csv")
+            log.error("Aucun --csv fourni et la récupération des bougies a échoué : %s", exc)
+            log.error("Fournis des données, ex. : --mode backtest --csv chemin/data.csv")
             return 2
 
     strategy = build_strategy(settings)
-    log.info("Strategy: %s", strategy.name)
     report = run_backtest(
         data,
         strategy,

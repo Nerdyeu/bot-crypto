@@ -30,10 +30,13 @@ from typing import Optional, Protocol
 from trading_bot.config import Settings
 from trading_bot.exchange import ExchangeClient, ExchangeClientError
 from trading_bot.logger import get_logger
+from trading_bot import ui
 from trading_bot.risk import OrderRequest, OrderSide, RiskManager
 from trading_bot.strategy import Signal, Strategy
 
 log = get_logger("executor")
+
+_REASON_FR = {"stop_loss": "stop-loss", "take_profit": "take-profit", "signal": "signal"}
 
 
 class LiveTradingError(RuntimeError):
@@ -104,9 +107,11 @@ class TradingEngine:
                                      stop_loss=self.broker.stop_loss, reason=reason)
                 if self.risk.check_order(order, equity=equity, free_balance=free_quote, now=now):
                     pnl = self.broker.sell(price)
-                    log.info("%s SELL %s qty=%.8f @ %.2f (%s) pnl=%+.2f equity=%.2f",
-                             self.label, symbol, order.quantity, price, reason, pnl,
-                             self.broker.equity(price))
+                    log.info("%s  %s  VENTE %s %s @ %s  ·  %s  ·  résultat %s  ·  capital %s",
+                             now.strftime("%H:%M:%S"), self.label, ui.amount(order.quantity),
+                             self.settings.base_currency, ui.money(price),
+                             _REASON_FR.get(reason, reason), ui.money(pnl, sign=True),
+                             ui.money(self.broker.equity(price)))
                     return {"action": "sell", "reason": reason, "price": price, "pnl": pnl}
             return {"action": "hold", "price": price}
 
@@ -120,17 +125,19 @@ class TradingEngine:
             if decision:
                 self.broker.buy(price, quantity, stop_loss=stop, take_profit=take_profit)
                 self.risk.register_trade()
-                log.info("%s BUY %s qty=%.8f @ %.2f stop=%.2f tp=%.2f equity=%.2f",
-                         self.label, symbol, quantity, price, stop, take_profit,
-                         self.broker.equity(price))
+                log.info("%s  %s  ACHAT %s %s @ %s  ·  stop %s / tp %s  ·  capital %s",
+                         now.strftime("%H:%M:%S"), self.label, ui.amount(quantity),
+                         self.settings.base_currency, ui.money(price), ui.money(stop),
+                         ui.money(take_profit), ui.money(self.broker.equity(price)))
                 return {"action": "buy", "price": price, "quantity": quantity}
             return {"action": "blocked", "rule": decision.rule, "price": price}
 
         return {"action": "hold", "price": price}
 
     def run(self, poll_seconds: float = 60.0, max_iterations: Optional[int] = None) -> None:
-        log.info("%s trading started (poll=%ss, symbol=%s, capital=%.2f).",
-                 self.label, poll_seconds, self.settings.symbol, self.settings.initial_capital)
+        log.info("Surveillance %s démarrée — %s, un cycle toutes les %ss. "
+                 "(silencieux tant qu'il n'y a pas de trade ; Ctrl+C pour arrêter)",
+                 self.label, self.settings.symbol, poll_seconds)
         iteration = 0
         while max_iterations is None or iteration < max_iterations:
             try:
